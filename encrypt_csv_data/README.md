@@ -6,8 +6,8 @@
 
     ```bash
     python -m venv venv             # once per project
-    pip install -r requirements.txt # once every time there is a package update
     . venv/bin/activate             # required once before running the script
+    pip install -r requirements.txt # once every time there is a package update
     echo $VIRTUAL_ENV               # fyi
     deactivate                      # when the venv is not longer needed
     ```
