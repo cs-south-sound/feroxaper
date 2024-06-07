@@ -29,11 +29,16 @@ def encrypt_data(key, variable):
     encrypted_data = f.encrypt(str(variable).encode())
     # sanity check the encryption
     decrypted_data = decrypt_data(key, encrypted_data)
-    if variable == decrypted_data:
+    if str(variable) == str(decrypted_data):
         #the encryption succeeded
         pass
     else:
-        msg = "In function encrypt_data the decrypted data does not match the input variable \n" 
+        msg = "The input value causing the error is: " + str(variable)
+        msg += "  The decrypted_data is: " + str(decrypted_data)
+        logger.warning(msg)
+
+
+        msg = "In function encrypt_data the decrypted data does not match the input variable \n"
         msg += "For example type(variable): " + str(type(variable))
         msg += "   ne type(decrypted_data): "+ str(type(decrypted_data))
         raise ValueError(msg)
@@ -57,9 +62,9 @@ def smudge(cleartxt):
 def help(relative_path_to_readme):
     with open(relative_path_to_readme, "r") as f:
         readme_markdown = f.read()
-        console = Console(force_terminal=bool(os.environ.get("rich_force_terminal", True)))        
+        console = Console(force_terminal=bool(os.environ.get("rich_force_terminal", True)))
         md = Markdown(readme_markdown)
-        console.print(md) 
+        console.print(md)
 
 #
 
@@ -102,15 +107,15 @@ def main():
 
     parser = argparse.ArgumentParser(description='Encrypt or smudge CSV data')
     parser.add_argument("--augmented_help",  action='store_true', default="", help="Verbose help")
-    parser.add_argument('-v', '--version', action='store_true', default='', 
+    parser.add_argument('-v', '--version', action='store_true', default='',
                         help="Print the version of this script")
     e_help = "Encrypt headers and data  with Fernet. Your super-secret key required as an argument"
     parser.add_argument('-e', '--encrypt', nargs=1, default='', help=e_help)
-    s_help = "Smudge the input data to make it less readable" 
+    s_help = "Smudge the input data to make it less readable"
     parser.add_argument('-s', '--smudge', action='store_true', default='', help=s_help)
     f_help = "Where FILENAMES is a python style list of filenames in data/, like [example-100.csv]."
     f_help += "  Current version only retrieves the first item."
-    parser.add_argument('-f', '--filenames', nargs='?', 
+    parser.add_argument('-f', '--filenames', nargs='?',
                          default='[example-100.csv]', const='[example-100.csv]',  help=f_help)
 
     parser.add_argument('--verbose', action='store_true', default='', help='Print debugging messages')
@@ -119,7 +124,6 @@ def main():
 #
 
     if args.verbose:
-        #logging.basicConfig(level=logging.DEBUG)
         global logger
         logger.setLevel(logging.DEBUG)
         logger = logging.getLogger(__name__)
@@ -149,8 +153,9 @@ def main():
         exit()
 
     if args.version:
-        logger.info(version)
-        print(Path(__file__),"\nversion:", version)
+        msg = "version: " + version
+        logger.info(msg)
+        logger.info(Path(__file__))
         exit()
 
     # Choose between strong encryption to require a key for
@@ -179,7 +184,7 @@ def main():
         logger.info(msg)
         msg = "To process your own files try option -f '[myfile1.csv, myfile2.csv]'"
         logger.info(msg)
-    
+
     # Read data from a csv file
     try:
         data = pd.read_csv(paths['input'])
@@ -196,6 +201,11 @@ def main():
     # Replace variables that are missing with a ''
     data.fillna('', inplace=True)
 
+    if args.verbose:
+        msg = "First five lines of csv file in pandas dataframe"
+        logger.debug(msg)
+        print(data.head().to_string())
+
     # Capture the column headers unencrypted
     unencrypted_headers_list = data.columns.tolist()
     unencrypted_header_row_df = pd.DataFrame(columns=unencrypted_headers_list)
@@ -209,12 +219,14 @@ def main():
             exit()
 
         # encrypt each element of the header and the data
-        encrypted_head  = unencrypted_header_row_df.map(lambda x: encrypt_data(key, x), na_action=None) 
+        encrypted_head  = unencrypted_header_row_df.map(lambda x: encrypt_data(key, x), na_action=None)
         encrypted_dataz = data.map(lambda x: encrypt_data(key, x), na_action=None)
         # write to output file (overwrites an existing file name)
         encrypted_head.to_csv( paths['output_e'], index=False, mode='w', header=False)
         encrypted_dataz.to_csv(paths['output_e'], index=False, mode='a', header=False)
-        print("\nEncryption complete.\nFind output in\n", paths['output_e']) 
+        logger.info("Encryption complete.")
+        msg = "Find output in " + paths['output_e']
+        logger.info(msg)
 
     elif default_to_encryption == "no":
         # smudge
@@ -223,13 +235,11 @@ def main():
         encrypted_dataz = data.map(lambda x: smudge(x), na_action=None)
         # Append the encrypted data to the same file
         encrypted_dataz.to_csv(paths['output_s'], index=False, mode='a', header=False)
-        print("*"*70)
-        print("** WARNING! The output has been smudged, it is not encrypted.")
-        print("** Anyone can retranslate the data")
-        print("*"*70)
-        print("Smudging complete. Find output in\n ", paths['output_s'])
-
-
+        logger.warning("The output has been smudged, it is not encrypted.")
+        logger.warning("Anyone can retranslate the data.")
+        logger.info("Smudging complete.")
+        msg = "Find output in " + paths['output_s']
+        logger.info(msg)
 # # # # # # # # # # # # # # #
 
 
